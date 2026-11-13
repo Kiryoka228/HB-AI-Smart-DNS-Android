@@ -1,0 +1,28 @@
+name: Diagnose ChatGPT Smart DNS routes
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tests/diagnose_chatgpt_dns.py'
+      - '.github/workflows/diagnose-chatgpt-dns.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  network-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test DNS A/AAAA + TLS/HTTP with untouched certificates
+        run: |
+          python3 -m py_compile tests/diagnose_chatgpt_dns.py
+          python3 tests/diagnose_chatgpt_dns.py dns_chatgpt_report.json
+      - name: Upload anonymized network test report
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-smartdns-network-diagnostics
+          path: dns_chatgpt_report.json
+          if-no-files-found: error
