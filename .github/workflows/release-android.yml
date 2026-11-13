@@ -1,0 +1,61 @@
+name: Publish Android v1.25.0 APK
+on:
+  push:
+    paths:
+      - ".github/workflows/release-android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  github-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download tested APK from successful Android build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download 43505704700 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name HB_AI_Smart_DNS_Android_1.25-debug-APK \
+            --dir dist
+          test -s dist/app-debug.apk
+          mv dist/app-debug.apk dist/HB_AI_Smart_DNS_Android_1.25.apk
+          (cd dist && sha256sum HB_AI_Smart_DNS_Android_1.25.apk > SHA256SUMS.txt)
+
+      - name: Publish APK as prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v1.25.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v1.25.0 already exists; leaving it unchanged."
+            exit 0
+          fi
+          cat > release-notes.md <<'NOTES'
+          ## HB AI Smart DNS Android 1.25.0
+
+          APK для установки на Android 8.0+ без Termux.
+
+          - WebView-интерфейс и локальная DNS-диагностика.
+          - Root (если имеется) или Android VpnService по разрешению пользователя.
+          - Диагностика Android Private DNS, счётчики перехваченных DNS-запросов.
+          - Исправлена проверка HTTPS: 403/451, CAPTCHA и TLS-ошибки не считаются доступностью сервиса.
+          - 22 из 22 офлайн-тестов прошли; APK успешно скомпилирован в GitHub Actions.
+
+          **Статус: предварительный релиз.** APK не испытан на физическом Android. Это DNS-прокси, не полноценный VPN, и он не обходит собственный DoH приложений, ограничения по IP-региону или защиту TLS. APK подписан временным отладочным ключом CI; для обновления через установку поверх старой версии может потребоваться удаление предыдущей сборки.
+
+          Файлы: `HB_AI_Smart_DNS_Android_1.25.apk` и `SHA256SUMS.txt`. Исходный код доступен в архиве Source code в релизе.
+          NOTES
+          gh release create v1.25.0 \
+            dist/HB_AI_Smart_DNS_Android_1.25.apk \
+            dist/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "HB AI Smart DNS Android 1.25.0 (beta)" \
+            --notes-file release-notes.md \
+            --prerelease
