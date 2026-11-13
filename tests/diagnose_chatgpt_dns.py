@@ -23,6 +23,9 @@ PROVIDERS = {
     'Xbox DNS': ['111.88.96.54', '111.88.96.55'],
     'Cloudflare control': ['1.1.1.1'],
     'Google control': ['8.8.8.8'],
+    'MagicDNS historical': ['109.120.132.43', '94.249.177.102'],
+    'GeoHide historical': ['45.13.237.213'],
+    'Comss historical': ['83.220.169.155', '195.133.25.16'],
 }
 HOSTS = ['chatgpt.com', 'auth.openai.com', 'ws.chatgpt.com', 'www.cloudflare.com']
 Q_TYPES = {'A': 1, 'AAAA': 28}
@@ -98,17 +101,17 @@ def dns_probe(provider, server, host, qtype):
     result['ms'] = round((time.monotonic() - t0) * 1000)
     return result
 
-def https_probe(host, ip, provider, server):
+def https_probe(host, ip, provider, server, path="/"):
     t0 = time.monotonic()
     result = {'host': host, 'ip': ip, 'provider': provider, 'server': server,
-              'status': None, 'redirect': None, 'curl_exit': None, 'tls_verified': None}
+              'status': None, 'redirect': None, 'curl_exit': None, 'tls_verified': None, 'path': path}
     if not ipaddress.ip_address(ip).is_global:
         result['error'] = 'Non-public IP: do not connect to resolver supplied address'
         return result
     args = ['curl', '--noproxy', '*', '--silent', '--show-error', '--http1.1', '--output', '/dev/null',
             '--dump-header', '-', '--connect-timeout', '6', '--max-time', '11',
             '--resolve', f'{host}:443:{ip}', '--write-out', '\nDIAG-CODE:%{http_code};VERIFY:%{ssl_verify_result};REMOTE:%{remote_ip}\n',
-            f'https://{host}/']
+            f'https://{host}{path}']
     try:
         p = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                            text=True, errors='replace', timeout=14)
@@ -147,7 +150,9 @@ def main():
         if row['host'] not in ('chatgpt.com', 'auth.openai.com') or row['qtype'] != 'A':
             continue
         for ip in row['ips'][:2]:
-            https_tasks.append((row['host'], ip, row['provider'], row['server']))
+            https_tasks.append((row['host'], ip, row['provider'], row['server'], '/'))
+            if row['host'] == 'chatgpt.com':
+                https_tasks.append((row['host'], ip, row['provider'], row['server'], '/auth/login'))
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
         https = list(ex.map(lambda task: https_probe(*task), https_tasks))
     report = {'timestamp_utc': now, 'vantage': os.environ.get('GITHUB_RUNNER_NAME', 'local'),
@@ -165,7 +170,7 @@ def main():
     print('HTTPS chatgpt.com via each returned A record (TLS cert validation ON):')
     for x in https:
         if x['host'] == 'chatgpt.com':
-            print(f"{x['provider']:19} {x['server']:16} {x['ip']:16} http={x['status']} exit={x['curl_exit']} tls={x['tls_verified']} redirect={x['redirect']} {x.get('stderr', '')[:85]}")
+            print(f"{x['provider']:19} {x['server']:16} {x['ip']:16} path={x['path']:12} http={x['status']} exit={x['curl_exit']} tls={x['tls_verified']} redirect={x['redirect']} {x.get('stderr', '')[:85]}")
     print('Report:', out)
     # A silent DNS network is a diagnostic outcome, not a script failure.
 
