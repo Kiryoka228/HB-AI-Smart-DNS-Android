@@ -1,0 +1,13 @@
+{
+  "name": "HB AI · Smart DNS — Android Web",
+  "short_name": "HB AI DNS",
+  "description": "Smart DNS: диагностика Comss, GeoHide, MagicDNS и Xbox; root-управление через Termux",
+  "id": "/",
+  "start_url": "/",
+  "display": "standalone",
+  "scope": "/",
+  "background_color": "#07070b",
+  "theme_color": "#07070b",
+  "lang": "ru",
+  "icons": [{"src":"/assets/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},{"src":"/assets/icon.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]
+}

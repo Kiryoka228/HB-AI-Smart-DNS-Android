@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none';">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07070b">
+  <meta name="description" content="HB AI Smart DNS — веб-приложение для Android, с DNS/TLS-диагностикой и локальным VPN без root и автоматическим запросом root в APK.">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="../assets/icon.png">
+  <link rel="stylesheet" href="style.css">
+  <title>HB AI · Smart DNS для Android</title>
+  <script defer src="app.js"></script>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div class="pill"><span class="light"></span><span id="badge">Smart DNS 1.23 · comss.ru</span></div>
+    <div class="platform">ANDROID <span class="tiny-pwa">APK · WEB</span></div>
+  </header>
+  <main>
+    <div class="hero"><h1>Доступ<br><mark>к сервисам</mark></h1><p>Четыре DNS-сервиса. Выбор, диагностика и проверка доступа с вашего Android.</p></div>
+    <section class="power-area" aria-labelledby="status-title">
+      <button class="power" id="toggle" type="button" aria-label="Включить или отключить системный DNS">
+        <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 10V49M27 23a39 39 0 1 0 46 0" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+        <span id="toggle-text">ВКЛЮЧИТЬ</span>
+      </button>
+      <h2 id="status-title">DNS выключен</h2>
+      <p id="status-desc" aria-live="polite">Диагностика доступна без root. Для системного переключения нужны права root.</p>
+    </section>
+    <section class="service-select" aria-label="Выбор DNS-сервиса" id="services">
+      <button class="service selected" data-set="0">Comss</button>
+      <button class="service" data-set="1">GeoHide</button>
+      <button class="service" data-set="2">MagicDNS</button>
+      <button class="service" data-set="3">Xbox</button>
+    </section>
+    <section class="panel dns-panel">
+      <div class="dns-line"><span>DNS</span><code id="addresses">94.250.253.55 / 212.109.195.93</code><button class="copy" id="copy-dns" aria-label="Скопировать адреса DNS" title="Копировать">⧉</button></div>
+      <div class="action-grid">
+        <button class="small-btn" id="check">Проверить Comss</button>
+        <button class="small-btn" id="best">Найти лучший</button>
+      </div>
+      <p class="provider-note" id="provider-note"></p>
+      <div class="results" id="results" aria-live="polite"></div>
+      <p id="best-note" class="best-note" aria-live="polite"></p>
+      <p class="probe-notice">Проверка спрашивает выбранные DNS-серверы напрямую, затем открывает сайты по IP через TLS. Результат зависит от сети телефона.</p>
+    </section>
+    <section class="panel android-panel">
+      <div class="heading-row"><h2>Системный DNS на Android</h2><span id="mode-label" class="state-dot-text">DNS-VPN</span><span id="root-indicator" class="state-dot" aria-label="Статус root"></span></div>
+      <p>В APK встроен собственный DNS-движок. Если установлен и разрешён root (Magisk/KernelSU), применяется системный перехват DNS. Без root приложение предлагает локальный DNS-VPN через официальный механизм Android; отдельный Termux не требуется.</p>
+      <div class="action-grid"><button class="small-btn" id="root-check">Проверить root</button><button class="small-btn" id="settings">Настройки Android</button></div>
+      <div id="root-detail" class="note"></div>
+      <details><summary>Настройка без root</summary><p>В режиме без root нажмите «Включить» и разрешите Android локальную VPN-службу. Она будет обслуживать системные DNS-запросы через выбранного провайдера как для Wi-Fi, так и для мобильной сети. Если используется другой VPN, они могут конфликтовать; приложения с собственным DoH могут обходить системный DNS.</p></details>
+      <details><summary>Ограничения режима root</summary><p>В root-режиме используются su, iptables NAT и локальный DNS-прокси, а режим Private DNS временно отключается с сохранением исходной настройки. Для IPv6 ip6tables используется там, где поддерживается. Другие VPN, DoH/DoT внутри приложений и ограничения SELinux могут обходить этот метод. При отключении программа удаляет только собственные правила; дополнительно работает watchdog для аварийного отката.</p></details>
+    </section>
+    <section class="footer-cta"><a id="update-link" class="cta" target="_blank" rel="noopener noreferrer" href="https://vk.com/neiroseti_ai">Наша группа ВКонтакте <span>↗</span></a><p><strong>HB AI</strong><a target="_blank" rel="noopener noreferrer" href="https://vk.com/neiroseti_ai">vk.com/neiroseti_ai</a></p><small>Android APK Web Fork 1.24 · исходный HB AI Smart DNS 1.23 (MIT)</small></section>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</div>
+</body>
+</html>
