@@ -151,37 +151,43 @@ public final class DnsEngine {
         }
         return servfail(query);
     }
-    /** For diagnostics only: the desktop version intentionally doesn't verify the TLS certificate. */
+    /** A network-level check, never proof that a logged-in Android app is supported. */
     public static String checkSite(String host, String ip) {
         if(ip==null)return "DNS молчит";
-        if(ip.equals("0.0.0.0"))return "не пускает";
+        if(ip.equals("0.0.0.0"))return "DNS блокирует";
         try {
-            TrustManager[] trusts={new X509TrustManager(){
-                public X509Certificate[] getAcceptedIssuers(){return new X509Certificate[0];}
-                public void checkClientTrusted(X509Certificate[] c,String a){}
-                public void checkServerTrusted(X509Certificate[] c,String a){}
-            }};
-            SSLContext context=SSLContext.getInstance("TLS");
-            context.init(null,trusts,new SecureRandom());
             Socket transport=new Socket();
-            transport.connect(new InetSocketAddress(ip,443),6000);
-            transport.setSoTimeout(8000);
-            try(SSLSocket ssl=(SSLSocket)context.getSocketFactory().createSocket(transport,host,443,true)){
+            transport.connect(new InetSocketAddress(ip,443),5500);
+            transport.setSoTimeout(7000);
+            try(SSLSocket ssl=(SSLSocket)((SSLSocketFactory)SSLSocketFactory.getDefault()).createSocket(transport,host,443,true)) {
                 SSLParameters params=ssl.getSSLParameters();
                 params.setServerNames(java.util.Collections.singletonList(new SNIHostName(host)));
+                params.setEndpointIdentificationAlgorithm("HTTPS");
                 ssl.setSSLParameters(params);
                 ssl.startHandshake();
-                String req="GET / HTTP/1.1\r\nHost: "+host+"\r\nUser-Agent: Mozilla/5.0 (Android; HB-AI-SmartDNS)\r\nConnection: close\r\n\r\n";
+                String req="GET / HTTP/1.1\r\nHost: "+host+"\r\nUser-Agent: Mozilla/5.0 (Android; HB-AI-SmartDNS)\r\nAccept: text/html\r\nConnection: close\r\n\r\n";
                 ssl.getOutputStream().write(req.getBytes(StandardCharsets.US_ASCII));
-                InputStream in=ssl.getInputStream();byte[] b=new byte[4096];int n=in.read(b);
-                if(n<=0)return "нет связи";
-                String header=new String(b,0,n,StandardCharsets.UTF_8).toLowerCase(java.util.Locale.ROOT);
-                if(header.contains("/sorry/"))return "капча Google";
-                if(header.contains("restrict")||header.contains("unsupported")||header.contains("unavailable")||header.startsWith("http/1.1 451")||header.startsWith("http/1.0 451"))return "блок страны";
-                return "открывается";
+                InputStream in=ssl.getInputStream();byte[] buf=new byte[8192];int n=in.read(buf);
+                if(n<=0)return "TLS есть, HTTP молчит";
+                String content=new String(buf,0,n,StandardCharsets.UTF_8).toLowerCase(java.util.Locale.ROOT);
+                int lineEnd=content.indexOf('\n');
+                String first=(lineEnd<0?content:content.substring(0,lineEnd)).trim();
+                if(!first.startsWith("http/"))return "Необычный HTTP-ответ";
+                String[] bits=first.split(" +");
+                if(bits.length<2)return "Неясный HTTP-ответ";
+                int code=Integer.parseInt(bits[1]);
+                if(code==403||code==401||code==451)return "HTTP "+code+" · доступ ограничен";
+                if(content.contains("captcha")||content.contains("/sorry/")||content.contains("cf-chl-"))return "Проверка / CAPTCHA";
+                if(code>=200&&code<300)return "HTTP "+code+" · сервер отвечает";
+                if(code>=300&&code<400)return "HTTP "+code+" · перенаправление";
+                if(code>=400)return "HTTP "+code+" · ошибка/ограничение";
+                return "HTTP "+code;
             }
-        }catch(Exception ignored){return "нет связи";}
+        } catch(javax.net.ssl.SSLHandshakeException e) {
+            return "TLS: сертификат или соединение";
+        } catch(Exception ignored) {return "Нет HTTPS-связи";}
     }
+    public static boolean httpSuccess(String result){return result!=null&&result.matches("HTTP 2[0-9][0-9] \u00b7 сервер отвечает");}
     public static SiteResult probe(int provider, String[] site){
         byte[] ans=forward(queryA(site[0]),provider,null);
         String ip=firstA(ans);

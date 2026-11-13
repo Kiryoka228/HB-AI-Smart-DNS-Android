@@ -15,7 +15,7 @@
 <body>
 <div class="shell">
   <header>
-    <div class="pill"><span class="light"></span><span id="badge">Smart DNS 1.23 · comss.ru</span></div>
+    <div class="pill"><span class="light"></span><span id="badge">Smart DNS Android 1.25 · comss.ru</span></div>
     <div class="platform">ANDROID <span class="tiny-pwa">APK · WEB</span></div>
   </header>
   <main>
@@ -43,17 +43,25 @@
       <p class="provider-note" id="provider-note"></p>
       <div class="results" id="results" aria-live="polite"></div>
       <p id="best-note" class="best-note" aria-live="polite"></p>
-      <p class="probe-notice">Проверка спрашивает выбранные DNS-серверы напрямую, затем открывает сайты по IP через TLS. Результат зависит от сети телефона.</p>
+      <p class="probe-notice">Проверка отвечает только на вопрос, доступен ли сервер по HTTPS с телефона. HTTP 2xx не гарантирует работу авторизации или мобильного приложения; HTTP 403/451 означает ограничение доступа.</p>
     </section>
     <section class="panel android-panel">
       <div class="heading-row"><h2>Системный DNS на Android</h2><span id="mode-label" class="state-dot-text">DNS-VPN</span><span id="root-indicator" class="state-dot" aria-label="Статус root"></span></div>
       <p>В APK встроен собственный DNS-движок. Если установлен и разрешён root (Magisk/KernelSU), применяется системный перехват DNS. Без root приложение предлагает локальный DNS-VPN через официальный механизм Android; отдельный Termux не требуется.</p>
       <div class="action-grid"><button class="small-btn" id="root-check">Проверить root</button><button class="small-btn" id="settings">Настройки Android</button></div>
       <div id="root-detail" class="note"></div>
+      <div class="diagnostics">
+        <strong>Подтверждение DNS-перехвата</strong>
+        <p id="dns-counter" aria-live="polite">Счётчики пока не получены.</p>
+        <p id="dns-risk" aria-live="polite">Private DNS: неизвестно</p>
+        <button class="small-btn" id="verify" type="button">Проверить системный DNS</button>
+        <div id="verify-result" class="note"></div>
+        <p class="probe-notice">Счётчик доказывает только прохождение обычного DNS. Защищённый DNS, региональные ограничения по IP и вход в аккаунт этим способом не обходятся. В приложениях может понадобиться отдельно разрешённое сетевое подключение.</p>
+      </div>
       <details><summary>Настройка без root</summary><p>В режиме без root нажмите «Включить» и разрешите Android локальную VPN-службу. Она будет обслуживать системные DNS-запросы через выбранного провайдера как для Wi-Fi, так и для мобильной сети. Если используется другой VPN, они могут конфликтовать; приложения с собственным DoH могут обходить системный DNS.</p></details>
       <details><summary>Ограничения режима root</summary><p>В root-режиме используются su, iptables NAT и локальный DNS-прокси, а режим Private DNS временно отключается с сохранением исходной настройки. Для IPv6 ip6tables используется там, где поддерживается. Другие VPN, DoH/DoT внутри приложений и ограничения SELinux могут обходить этот метод. При отключении программа удаляет только собственные правила; дополнительно работает watchdog для аварийного отката.</p></details>
     </section>
-    <section class="footer-cta"><a id="update-link" class="cta" target="_blank" rel="noopener noreferrer" href="https://vk.com/neiroseti_ai">Наша группа ВКонтакте <span>↗</span></a><p><strong>HB AI</strong><a target="_blank" rel="noopener noreferrer" href="https://vk.com/neiroseti_ai">vk.com/neiroseti_ai</a></p><small>Android APK Web Fork 1.24 · исходный HB AI Smart DNS 1.23 (MIT)</small></section>
+    <section class="footer-cta"><a id="update-link" class="cta" target="_blank" rel="noopener noreferrer" href="https://vk.com/neiroseti_ai">Наша группа ВКонтакте <span>↗</span></a><p><strong>HB AI</strong><a target="_blank" rel="noopener noreferrer" href="https://vk.com/neiroseti_ai">vk.com/neiroseti_ai</a></p><small>Android APK Web Fork 1.25 · исходный HB AI Smart DNS 1.23 (MIT)</small></section>
   </main>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </div>

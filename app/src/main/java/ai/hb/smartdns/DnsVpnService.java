@@ -13,6 +13,7 @@ import android.os.ParcelFileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -26,6 +27,12 @@ public final class DnsVpnService extends VpnService {
     public static volatile String mode="off";
     public static volatile String error="";
     public static volatile int provider=0;
+    private static final AtomicLong vpnRequests=new AtomicLong(),vpnReplies=new AtomicLong(),vpnFailures=new AtomicLong();
+    public static long[] stats(){
+        DnsVpnService service=instance;
+        if("root".equals(mode) && service!=null && service.rootProxy!=null) return service.rootProxy.stats();
+        return new long[]{vpnRequests.get(),vpnReplies.get(),vpnFailures.get()};
+    }
     private static volatile DnsVpnService instance;
     private volatile boolean running;
     private ParcelFileDescriptor tun;
@@ -104,6 +111,7 @@ public final class DnsVpnService extends VpnService {
                 foreground("Запуск локального DNS-VPN…",false);
                 tun=builder.establish();
                 if(tun==null)throw new Exception("Android не разрешил VPN-интерфейс");
+                vpnRequests.set(0);vpnReplies.set(0);vpnFailures.set(0);
                 running=true;mode="vpn";error="";
                 lookups=new ThreadPoolExecutor(3,8,30,TimeUnit.SECONDS,
                     new ArrayBlockingQueue<>(128),new ThreadPoolExecutor.AbortPolicy());
@@ -124,6 +132,7 @@ public final class DnsVpnService extends VpnService {
                     if(n<=0)break;
                     PacketCodec.Request request=PacketCodec.parse(buf,n);
                     if(request==null)continue;
+                    vpnRequests.incrementAndGet();
                     final int set=provider;
                     try{lookups.execute(()->{
                         byte[] answer=DnsEngine.forward(request.dns,set,new DnsEngine.Protect(){
@@ -131,8 +140,10 @@ public final class DnsVpnService extends VpnService {
                             @Override public boolean protect(java.net.Socket s){return DnsVpnService.this.protect(s);}
                         });
                         byte[] reply=PacketCodec.response(request,answer);
+                        if(answer.length>=4 && (answer[3]&15)!=0)vpnFailures.incrementAndGet();
                         if(reply!=null && running){
-                            synchronized(tunWrite){try{out.write(reply);out.flush();}catch(Exception ignored){}}
+                            synchronized(tunWrite){try{out.write(reply);out.flush();vpnReplies.incrementAndGet();}
+                                catch(Exception ignored){vpnFailures.incrementAndGet();}}
                         }
                     });}catch(java.util.concurrent.RejectedExecutionException ignored){}
                 }

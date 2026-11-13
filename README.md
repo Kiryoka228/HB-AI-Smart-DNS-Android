@@ -1,3 +1,5 @@
+# HB AI Smart DNS Android 1.25.0
+
 # HB AI Smart DNS Android 1.24.1
 
 # HB AI Smart DNS Android 1.24 — APK Web Fork
@@ -44,3 +46,12 @@ Root зависит от `su`, `iptables`/`ip6tables`, SELinux/netd и прош�
 ## 1.24.1 Android compatibility
 
 Foreground Service type is now `specialUse` in both the manifest and Java service, avoiding the system-only `systemExempted` type on stock Android. VPN startup posts a foreground notification before TUN establishment. VPN revocation triggers full root-rule cleanup if ever applicable. This is a technical source revision; runtime behavior on physical devices has not yet been verified.
+
+## Android-specific diagnostic fixes 1.25.0
+
+- Counts DNS queries actually observed and answered by the local VPN or root proxy. A running VPN no longer implicitly means the Android app used this DNS.
+- Android system DNS verification uses a uniquely named disposable hostname and checks whether the VPN received the query. The root service excludes its own app UID from interception, so verification in root mode requires visiting an external site.
+- Exposes the Private DNS mode (where accessible) and warns when strict DNS-over-TLS can interfere.
+- HTTPS diagnostic now validates TLS certificates and distinguishes HTTP 200, redirects, 403/451, CAPTCHA and TLS failures. HTTPS reachability **does not prove regional service availability** or the ability to sign in to an app.
+- No attempts to disable certificate pinning, HTTPS validation, or other applications' security controls. Applications using their own encrypted DNS may not use this proxy. This is not a full traffic VPN.
+- 1.25 debug APK uses a different per-build key than 1.24.1; Android may require uninstalling the earlier debug build before installing.

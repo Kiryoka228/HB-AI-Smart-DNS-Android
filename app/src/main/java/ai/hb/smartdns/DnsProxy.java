@@ -3,6 +3,7 @@ package ai.hb.smartdns;
 import java.io.*;
 import java.net.*;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -16,6 +17,8 @@ public final class DnsProxy implements AutoCloseable {
     private ServerSocket tcp6;
     private final ExecutorService workers=Executors.newFixedThreadPool(12);
     private volatile int provider;
+    private final AtomicLong requests=new AtomicLong(), replies=new AtomicLong(), failures=new AtomicLong();
+    public long[] stats(){return new long[]{requests.get(),replies.get(),failures.get()};}
     public DnsProxy(int provider){this.provider=provider;}
     public void setProvider(int p){if(p>=0&&p<4)provider=p;}
     public boolean supportsIPv6(){return udp6!=null&&tcp6!=null;}
@@ -44,11 +47,13 @@ public final class DnsProxy implements AutoCloseable {
                     byte[] b=new byte[4096];DatagramPacket req=new DatagramPacket(b,b.length);source.receive(req);
                     final byte[] query=Arrays.copyOfRange(req.getData(),req.getOffset(),req.getOffset()+req.getLength());
                     final SocketAddress client=req.getSocketAddress();
+                    requests.incrementAndGet();
                     workers.execute(()->{
                         byte[] response=DnsEngine.forward(query,provider,null);
-                        if(response.length<12)return;
-                        try { synchronized(source){source.send(new DatagramPacket(response,response.length,client));} }
-                        catch(IOException ignored){}
+                        if(response.length<12){failures.incrementAndGet();return;}
+                        try { synchronized(source){source.send(new DatagramPacket(response,response.length,client));}
+                            replies.incrementAndGet();if((response[3]&15)!=0)failures.incrementAndGet(); }
+                        catch(IOException ignored){failures.incrementAndGet();}
                     });
                 }catch(Exception ignored){if(!running)break;}
             }
@@ -71,10 +76,11 @@ public final class DnsProxy implements AutoCloseable {
             while(running){
                 int n; try{n=in.readUnsignedShort();}catch(EOFException eof){break;}
                 if(n<17||n>4096)break;
-                byte[] q=new byte[n];in.readFully(q);
+                byte[] q=new byte[n];in.readFully(q);requests.incrementAndGet();
                 byte[] answer=DnsEngine.forward(q,provider,null);
                 if(answer.length<12)break;
                 out.writeShort(answer.length);out.write(answer);out.flush();
+                replies.incrementAndGet();if((answer[3]&15)!=0)failures.incrementAndGet();
             }
         }catch(IOException ignored){}
     }

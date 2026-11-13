@@ -1,6 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id);
-const app={token:null,selected:0,active:false,mode:'off',error:'',services:[],check:null,probeBusy:false,systemBusy:false,root:false,rootChecked:false};
+const app={token:null,selected:0,active:false,mode:'off',error:'',services:[],check:null,probeBusy:false,systemBusy:false,root:false,rootChecked:false,dnsRequests:0,dnsReplies:0,dnsFailures:0,privateDnsMode:'неизвестно'};
 const android=typeof window.HBAndroid!=='undefined';
 window.HBTransport={
   pending:new Map(), serial:0,
@@ -30,22 +30,31 @@ async function request(endpoint,data){
 }
 function updateStatus(s){
   app.token=s.token;app.selected=s.selected;app.active=s.active;app.services=s.services;app.probeBusy=s.probeBusy;app.systemBusy=s.systemBusy;app.mode=s.mode||'off';app.error=s.error||'';app.root=!!s.root;app.rootChecked=!!s.rootChecked;
+  app.dnsRequests=s.dnsRequests||0;app.dnsReplies=s.dnsReplies||0;app.dnsFailures=s.dnsFailures||0;
+  app.privateDnsMode=s.privateDnsMode||'неизвестно';
   render();
 }
 function render(){
   const provider=app.services[app.selected];if(!provider)return;
-  $('badge').textContent='Smart DNS 1.23 · '+provider.site;
+  $('badge').textContent='Smart DNS 1.25 · '+provider.site;
   $('addresses').textContent=provider.v4.join('  /  ');
   $('provider-note').textContent=provider.opens;
   document.querySelectorAll('.service').forEach(el=>{el.classList.toggle('selected',Number(el.dataset.set)===app.selected);el.disabled=app.systemBusy||app.probeBusy;});
   const busy=app.systemBusy||app.probeBusy;
   const power=$('toggle');power.classList.toggle('on',app.active);power.classList.toggle('loading',app.systemBusy);power.disabled=busy;
   $('toggle-text').textContent=app.systemBusy?'ПРИМЕНЯЕМ':app.active?'ВЫКЛЮЧИТЬ':'ВКЛЮЧИТЬ';
-  $('status-title').textContent=app.systemBusy?'Применяем настройки…':app.active?'DNS включён':'DNS выключен';
+  $('status-title').textContent=app.systemBusy?'Применяем настройки…':app.active?(app.dnsReplies?'DNS работает · запросы видны':'DNS-сервис включён · нет подтверждения'):'DNS выключен';
   $('status-desc').textContent=app.error&&!app.active?app.error:app.active?
     (app.mode==='root'?`${provider.name}: системный DNS перенаправляется через root. Приложение работает самостоятельно.`:
     `${provider.name}: DNS применяется через локальный Android VPN, без root и Termux.`):
     (android?'Доступны два режима: root-перехват или DNS-VPN без root. Для VPN потребуется системное разрешение Android.':'Для системного переключения требуются root-права и запущенный локальный сервис.');
+  const counter=$('dns-counter'), risk=$('dns-risk');
+  if(counter)counter.textContent=`Перехвачено запросов: ${app.dnsRequests} · ответов: ${app.dnsReplies} · ошибок: ${app.dnsFailures}`;
+  if(risk){
+    const strict=app.privateDnsMode==='hostname';
+    risk.textContent='Private DNS: '+app.privateDnsMode+(strict?' · строгий DoT может обходить обычный DNS-VPN. Откройте настройки Android и выберите Автоматически, если хотите проверить работу Smart DNS.':'');
+    risk.classList.toggle('warning',strict);
+  }
   $('check').textContent=app.probeBusy?'Проверяем…':'Проверить '+provider.short;
   $('best').textContent=app.probeBusy?'Ищем…':'Найти лучший';
   $('check').disabled=busy;$('best').disabled=busy;
@@ -58,7 +67,7 @@ function renderResults(){
   const root=$('results');root.replaceChildren();
   for(const entry of [{label:'ChatGPT'},{label:'Claude'},{label:'Gemini'},{label:'ElevenLabs'},{label:'Grok'},{label:'Perplexity'}]){
     const row=app.check?.set===app.selected?app.check.rows.find(x=>x.label===entry.label):null;
-    const tone=row?(row.result==='открывается'?'ok':row.result==='капча Google'?'captcha':'bad'):'';
+    const tone=row?(row.result?.startsWith('HTTP 2')?'ok':row.result?.startsWith('HTTP 3')||row.result?.includes('CAPTCHA')?'captcha':'bad'):'';
     const box=document.createElement('div');box.className='result';
     const dot=document.createElement('span');dot.className='dot '+tone;
     const body=document.createElement('div');body.className='result-body';
@@ -113,6 +122,11 @@ document.addEventListener('DOMContentLoaded',async()=>{
   $('best').addEventListener('click',withBusy(findBest));
   $('toggle').addEventListener('click',withBusy(toggle));
   $('root-check').addEventListener('click',withBusy(rootCheck));
+  $('verify').addEventListener('click',withBusy(async()=>{
+    $('verify-result').textContent='Проверяем через системный резолвер Android…';
+    const result=await perform(()=>request('verify',{}));
+    $('verify-result').textContent=result.note;await refresh();
+  }));
   $('copy-dns').addEventListener('click',withBusy(copyDns));
   $('settings').addEventListener('click',withBusy(async()=>{await perform(()=>request('open-settings',{}));notify('Открыты сетевые настройки Android');}));
   await refresh();void checkUpdate();

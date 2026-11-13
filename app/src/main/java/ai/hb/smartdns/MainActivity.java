@@ -3,6 +3,8 @@ package ai.hb.smartdns;
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
+import android.provider.Settings;
+import java.net.InetAddress;
 import android.net.VpnService;
 import android.os.Bundle;
 import android.webkit.JavascriptInterface;
@@ -100,6 +102,17 @@ public final class MainActivity extends Activity {
         obj.put("error",DnsVpnService.error);
         obj.put("root",rootAvailable);obj.put("rootChecked",rootChecked);
         obj.put("systemBusy",systemBusy);obj.put("probeBusy",probeBusy);
+        long[] stats=DnsVpnService.stats();
+        obj.put("dnsRequests",stats[0]);obj.put("dnsReplies",stats[1]);obj.put("dnsFailures",stats[2]);
+        String privateDns="неизвестно";
+        try{
+            String value=Settings.Global.getString(getContentResolver(),"private_dns_mode");
+            if(value!=null)privateDns=value;
+        }catch(Exception ignored){}
+        obj.put("privateDnsMode",privateDns);
+        obj.put("dnsObserved",stats[0]>0 && stats[1]>0);
+        obj.put("dnsStatus",stats[0]==0?"Перехват не подтверждён: DNS-запросов пока не видно."
+                :"Перехвачено: "+stats[0]+" · ответов: "+stats[1]+" · ошибок DNS: "+stats[2]);
         JSONArray services=new JSONArray();
         for(int i=0;i<4;i++){
             JSONObject p=new JSONObject();
@@ -123,7 +136,7 @@ public final class MainActivity extends Activity {
             JSONObject row=new JSONObject();row.put("label",r.label);
             row.put("ip",r.ip==null?JSONObject.NULL:r.ip);
             row.put("result",r.result);rows.put(row);
-            if("открывается".equals(r.result))good++;
+            if(DnsEngine.httpSuccess(r.result))good++;
         }
         return new JSONObject().put("set",p).put("rows",rows).put("good",good);
     }
@@ -138,10 +151,10 @@ public final class MainActivity extends Activity {
         for(int i=0;i<3;i++)if(all[i].getInt("good")>all[candidate].getInt("good"))candidate=i;
         int count=all[candidate].getInt("good");
         if(count==0)return new JSONObject().put("selected",selected)
-            .put("chosen",probeProvider(selected)).put("note","Ни один DNS не открыл сайты — оставляем текущий.");
+            .put("chosen",probeProvider(selected)).put("note","Нет подтверждённых HTTP 2xx — оставляем текущий DNS.");
         select(candidate);
         return new JSONObject().put("selected",selected).put("chosen",all[candidate])
-            .put("note","Лучший: "+DnsEngine.NAMES[candidate]+" (доступно "+count+" из 6)");
+            .put("note","Наибольшее число HTTP 2xx: "+DnsEngine.NAMES[candidate]+" ("+count+" из 6). Это не гарантирует доступ в сторонних приложениях.");
     }
     private synchronized void select(int p){
         selected=p;
@@ -237,6 +250,24 @@ public final class MainActivity extends Activity {
                                 }
                             }else{DnsVpnService.launch(MainActivity.this,DnsVpnService.STOP);}
                             answer=status();break;
+                        }
+                        case "verify":{
+                            if("vpn".equals(DnsVpnService.mode)) {
+                                long before=DnsVpnService.stats()[0];
+                                String domain="hbai-"+Long.toHexString(System.nanoTime())+".example.org";
+                                // A unique hostname avoids Android's DNS cache; NXDOMAIN is expected.
+                                try{InetAddress.getAllByName(domain);}catch(Exception ignored){}
+                                long after=DnsVpnService.stats()[0];
+                                answer=new JSONObject().put("observed",after>before)
+                                    .put("note",after>before?"Системный DNS-запрос действительно прошёл через VPN.":
+                                    "VPN не получил DNS-запрос. Проверьте Private DNS, другой VPN и настройки сети.")
+                                    .put("before",before).put("after",after);
+                            } else {
+                                answer=new JSONObject().put("observed",false)
+                                    .put("note",DnsVpnService.active()?"В root-режиме собственные DNS-запросы приложения исключены из перехвата. Откройте сайт во внешнем приложении и проверьте счётчик.":
+                                        "Сначала включите DNS-VPN.");
+                            }
+                            pushStatus();break;
                         }
                         case "root-check":{
                             rootAvailable=new RootController(MainActivity.this).available();rootChecked=true;

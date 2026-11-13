@@ -51,6 +51,10 @@ public final class OfflineTest {
         invalid=Arrays.copyOf(v4,v4.length);invalid[6]=0x20;
         test("TUN rejects IP fragments",PacketCodec.parse(invalid,invalid.length)==null);
         test("Diagnose unavailable DNS",DnsEngine.checkSite("example.org",null).equals("DNS молчит"));
+        test("HTTP 200 counts only as a reachable server",DnsEngine.httpSuccess("HTTP 200 · сервер отвечает"));
+        test("HTTP 403 isn't accessible",!DnsEngine.httpSuccess("HTTP 403 · доступ ограничен"));
+        test("HTTP 302 isn't a logged-in site",!DnsEngine.httpSuccess("HTTP 302 · перенаправление"));
+        test("TLS without HTTP isn't success",!DnsEngine.httpSuccess("TLS есть, HTTP молчит"));
         DnsProxy proxy=new DnsProxy(0);
         try{
             proxy.start();
@@ -59,12 +63,14 @@ public final class OfflineTest {
                 s.send(new DatagramPacket(q,q.length,InetAddress.getLoopbackAddress(),DnsProxy.PORT));
                 byte[] buf=new byte[1024];DatagramPacket resp=new DatagramPacket(buf,buf.length);s.receive(resp);
                 test("Root UDP proxy AAAA filtering",resp.getLength()==q.length && DnsEngine.u16(buf,6)==0);
+                test("Root proxy has real request and reply counters",proxy.stats()[0]>=1 && proxy.stats()[1]>=1);
             }
             try(Socket s=new Socket("127.0.0.1",DnsProxy.PORT)){
                 s.setSoTimeout(2000);DataOutputStream out=new DataOutputStream(s.getOutputStream());DataInputStream in=new DataInputStream(s.getInputStream());
                 out.writeShort(q.length);out.write(q);out.flush();
                 int n=in.readUnsignedShort();byte[] resp=new byte[n];in.readFully(resp);
                 test("Root TCP proxy AAAA filtering",n==q.length&&DnsEngine.u16(resp,6)==0);
+                test("Root proxy counts TCP DNS as well",proxy.stats()[0]>=2 && proxy.stats()[1]>=2);
             }
         }finally{proxy.close();}
         System.out.println("PASS: "+passed+" offline tests");
