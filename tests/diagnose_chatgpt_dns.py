@@ -146,10 +146,15 @@ def main():
     with concurrent.futures.ThreadPoolExecutor(max_workers=16) as ex:
         dns = list(ex.map(lambda task: dns_probe(*task), tasks))
     https_tasks = []
+    seen_routes = set()
     for row in dns:
         if row['host'] not in ('chatgpt.com', 'auth.openai.com') or row['qtype'] != 'A':
             continue
-        for ip in row['ips'][:2]:
+        for ip in row['ips'][:8]:
+            key = (row['host'], ip, row['provider'])
+            if key in seen_routes:
+                continue
+            seen_routes.add(key)
             https_tasks.append((row['host'], ip, row['provider'], row['server'], '/'))
             if row['host'] == 'chatgpt.com':
                 https_tasks.append((row['host'], ip, row['provider'], row['server'], '/auth/login'))
