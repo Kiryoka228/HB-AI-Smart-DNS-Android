@@ -55,3 +55,14 @@ Foreground Service type is now `specialUse` in both the manifest and Java servic
 - HTTPS diagnostic now validates TLS certificates and distinguishes HTTP 200, redirects, 403/451, CAPTCHA and TLS failures. HTTPS reachability **does not prove regional service availability** or the ability to sign in to an app.
 - No attempts to disable certificate pinning, HTTPS validation, or other applications' security controls. Applications using their own encrypted DNS may not use this proxy. This is not a full traffic VPN.
 - 1.25 debug APK uses a different per-build key than 1.24.1; Android may require uninstalling the earlier debug build before installing.
+
+## 1.26 — Smart AI path recovery (ChatGPT + Gemini)
+
+- Для DNS A-запросов к `chatgpt.com`, `*.chatgpt.com`, `chat.openai.com`, `android.chat.openai.com`, `auth.openai.com`, `*.auth.openai.com`, `auth0.openai.com`, `gemini.google.com` включена проверка HTTPS-маршрутов на **самом телефоне**. DNS-ответы иных доменов не переписываются.
+- Движок получает A-записи выбранного DNS, перебирает до шести публичных IPv4-узлов, устанавливает TLS с SNI и **штатной проверкой сертификата/hostname** и принимает HTTP 2xx/3xx как доступность HTTPS-сервера (не как успешную авторизацию). Неподходящие/тайм-аут IP не выбираются.
+- Если у выбранного DNS не найден рабочий HTTPS-узел, для указанных AI-доменов пробуются Comss.one и GeoHide EU. Исходный DNS-ответ сохраняется, если работоспособный HTTPS-узел не доказан. Xbox DNS не меняется.
+- Кэш выбранного IP живёт **45 секунд**; отрицательные результаты — 25 секунд. Никаких статических серверных IP из разового GitHub-теста в APK нет: выбор всегда зависит от сети телефона.
+- Счётчики проверенных HTTPS-маршрутов, выборов адреса и резервных переключений отображаются прямо в веб-интерфейсе.
+- Нет подмены HTTPS, TLS interception, cookie, аккаунтов или обхода CAPTCHA. **HTTP 403, региональные ограничения, приложения с собственным DNS-over-HTTPS/QUIC и запросы к другим доменам могут оставаться недоступны.**
+- При root / VPN используются те же новые правила DNS. Android SDK и Termux на телефоне не нужны; для сборки APK используется GitHub Actions.
+- `tests/OfflineTest.java`: 30 автономных тестов, включая синтетический отказ первого IP и корректный выбор второго. Это не полевой тест на реальном Android.

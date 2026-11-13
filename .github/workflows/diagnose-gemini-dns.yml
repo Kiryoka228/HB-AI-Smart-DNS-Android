@@ -1,0 +1,19 @@
+name: Compare Gemini and ChatGPT DNS HTTPS routes
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - tests/diagnose_gemini_dns.py
+      - .github/workflows/diagnose-gemini-dns.yml
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe ordinary DNS, TLS verification and HTTP status
+        run: python3 tests/diagnose_gemini_dns.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gemini-chatgpt-dns-network-report
+          path: gemini_chatgpt_dns_report.json

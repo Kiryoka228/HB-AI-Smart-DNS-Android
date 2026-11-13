@@ -49,7 +49,7 @@ public final class DnsProxy implements AutoCloseable {
                     final SocketAddress client=req.getSocketAddress();
                     requests.incrementAndGet();
                     workers.execute(()->{
-                        byte[] response=DnsEngine.forward(query,provider,null);
+                        byte[] response=SmartRoute.forward(query,provider,null);
                         if(response.length<12){failures.incrementAndGet();return;}
                         try { synchronized(source){source.send(new DatagramPacket(response,response.length,client));}
                             replies.incrementAndGet();if((response[3]&15)!=0)failures.incrementAndGet(); }
@@ -77,7 +77,7 @@ public final class DnsProxy implements AutoCloseable {
                 int n; try{n=in.readUnsignedShort();}catch(EOFException eof){break;}
                 if(n<17||n>4096)break;
                 byte[] q=new byte[n];in.readFully(q);requests.incrementAndGet();
-                byte[] answer=DnsEngine.forward(q,provider,null);
+                byte[] answer=SmartRoute.forward(q,provider,null);
                 if(answer.length<12)break;
                 out.writeShort(answer.length);out.write(answer);out.flush();
                 replies.incrementAndGet();if((answer[3]&15)!=0)failures.incrementAndGet();

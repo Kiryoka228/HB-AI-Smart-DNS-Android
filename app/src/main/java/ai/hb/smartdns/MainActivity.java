@@ -111,6 +111,9 @@ public final class MainActivity extends Activity {
         }catch(Exception ignored){}
         obj.put("privateDnsMode",privateDns);
         obj.put("dnsObserved",stats[0]>0 && stats[1]>0);
+        long[] smart=SmartRoute.counters();
+        obj.put("smartChecked",smart[0]);obj.put("smartSelected",smart[1]);
+        obj.put("smartFallbacks",smart[2]);obj.put("smartLast",SmartRoute.lastDecision());
         obj.put("dnsStatus",stats[0]==0?"Перехват не подтверждён: DNS-запросов пока не видно."
                 :"Перехвачено: "+stats[0]+" · ответов: "+stats[1]+" · ошибок DNS: "+stats[2]);
         JSONArray services=new JSONArray();
@@ -164,17 +167,17 @@ public final class MainActivity extends Activity {
     private JSONObject checkUpdate(){
         JSONObject r=new JSONObject();
         try{
-            HttpURLConnection c=(HttpURLConnection)new URL("https://api.github.com/repos/neiroseti-ai/hb-ai-xbox-dns/releases/latest").openConnection();
+            HttpURLConnection c=(HttpURLConnection)new URL("https://api.github.com/repos/Kiryoka228/HB-AI-Smart-DNS-Android/releases/latest").openConnection();
             c.setConnectTimeout(4000);c.setReadTimeout(4000);
             c.setRequestProperty("Accept","application/vnd.github+json");
-            c.setRequestProperty("User-Agent","HB-AI-Android-1.24");
+            c.setRequestProperty("User-Agent","HB-AI-Android-1.26");
             if(c.getResponseCode()==200){
                 byte[] data=new byte[32768];int n=c.getInputStream().read(data);if(n>0){
                     JSONObject release=new JSONObject(new String(data,0,n,StandardCharsets.UTF_8));
                     String tag=release.optString("tag_name","");
                     r.put("latest",tag);
-                    r.put("url",release.optString("html_url","https://github.com/neiroseti-ai/hb-ai-xbox-dns/releases"));
-                    r.put("newer",compareVersion(tag,"1.23")>0);
+                    r.put("url",release.optString("html_url","https://github.com/Kiryoka228/HB-AI-Smart-DNS-Android/releases"));
+                    r.put("newer",compareVersion(tag,"1.26.0")>0);
                 }
             }
             c.disconnect();

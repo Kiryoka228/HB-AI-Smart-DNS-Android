@@ -38,6 +38,24 @@ public final class OfflineTest {
         answer[p++]=0;answer[p++]=0;answer[p++]=0;answer[p++]=90;answer[p++]=0;answer[p++]=4;
         answer[p++]=1;answer[p++]=2;answer[p++]=3;answer[p++]=4;
         test("DNS A answer parse", "1.2.3.4".equals(DnsEngine.firstA(answer)));
+        byte[] multiple=Arrays.copyOf(a,a.length+32);
+        multiple[2]=(byte)0x81;multiple[3]=(byte)0x80;DnsEngine.put16(multiple,6,2);
+        for(int k=0;k<2;k++){
+            int o=a.length+k*16;multiple[o]=(byte)0xc0;multiple[o+1]=12;
+            DnsEngine.put16(multiple,o+2,1);DnsEngine.put16(multiple,o+4,1);
+            DnsEngine.put32(multiple,o+6,90);DnsEngine.put16(multiple,o+10,4);
+            multiple[o+12]=5;multiple[o+13]=6;multiple[o+14]=7;multiple[o+15]=(byte)(8+k);
+        }
+        test("DNS enumerates multiple A addresses",DnsEngine.allA(multiple).equals(Arrays.asList("5.6.7.8","5.6.7.9")));
+        test("Only Gemini and ChatGPT families use guarded routing",SmartRoute.protectedHost("gemini.google.com")&&SmartRoute.protectedHost("CHATGPT.COM")&&!SmartRoute.protectedHost("example.com")&&!SmartRoute.protectedHost("evilchatgpt.com"));
+        test("DNS question name decoded safely","chatgpt.com".equals(DnsEngine.questionName(a))&&DnsEngine.questionType(a)==1);
+        byte[] repaired=DnsEngine.oneA(a,"5.175.161.40",45);
+        test("Verified one-A response keeps original ID and TTL",repaired.length==a.length+16&&repaired[0]==a[0]&&repaired[1]==a[1]&&DnsEngine.u16(repaired,6)==1&&DnsEngine.u16(repaired,a.length+6)==0&&DnsEngine.allA(repaired).equals(Collections.singletonList("5.175.161.40")));
+        test("No localhost/private DNS-target substitution",!SmartRoute.validPublicV4("127.0.0.1")&&!SmartRoute.validPublicV4("10.2.3.4")&&!SmartRoute.validPublicV4("0.0.0.0")&&SmartRoute.validPublicV4("5.175.161.40"));
+        java.util.Map<String,Boolean> sim=new java.util.HashMap<>();sim.put("5.6.7.8",false);sim.put("5.6.7.9",true);
+        test("Bad IP is rejected and healthy IP selected", "5.6.7.9".equals(SmartRoute.firstLiveForTest("chatgpt.com",DnsEngine.allA(multiple),sim)));
+        test("Do not rewrite unrelated domain",SmartRoute.firstLiveForTest("example.com",DnsEngine.allA(multiple),sim)==null);
+        test("Do not return an unverified candidate",SmartRoute.firstLiveForTest("gemini.google.com",Collections.singletonList("5.6.7.8"),sim)==null);
         byte[] v4=ip4(q);PacketCodec.Request r4=PacketCodec.parse(v4,v4.length);
         test("IPv4 TUN receives DNS",r4!=null&&r4.version==4&&r4.srcPort==55343);
         byte[] v4reply=PacketCodec.response(r4,reject);

@@ -44,7 +44,7 @@ public final class DnsVpnService extends VpnService {
 
     public static boolean active(){return !mode.equals("off");}
     public static void setProvider(int p){
-        if(p<0||p>3)return;provider=p;
+        if(p<0||p>3)return;provider=p;SmartRoute.invalidate();
         DnsVpnService obj=instance;
         if(obj!=null&&obj.rootProxy!=null)obj.rootProxy.setProvider(p);
     }
@@ -135,7 +135,7 @@ public final class DnsVpnService extends VpnService {
                     vpnRequests.incrementAndGet();
                     final int set=provider;
                     try{lookups.execute(()->{
-                        byte[] answer=DnsEngine.forward(request.dns,set,new DnsEngine.Protect(){
+                        byte[] answer=SmartRoute.forward(request.dns,set,new DnsEngine.Protect(){
                             @Override public boolean protect(java.net.DatagramSocket s){return DnsVpnService.this.protect(s);}
                             @Override public boolean protect(java.net.Socket s){return DnsVpnService.this.protect(s);}
                         });

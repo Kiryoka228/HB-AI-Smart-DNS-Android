@@ -1,6 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id);
-const app={token:null,selected:0,active:false,mode:'off',error:'',services:[],check:null,probeBusy:false,systemBusy:false,root:false,rootChecked:false,dnsRequests:0,dnsReplies:0,dnsFailures:0,privateDnsMode:'неизвестно'};
+const app={token:null,selected:0,active:false,mode:'off',error:'',services:[],check:null,probeBusy:false,systemBusy:false,root:false,rootChecked:false,dnsRequests:0,dnsReplies:0,dnsFailures:0,privateDnsMode:'неизвестно',smartChecked:0,smartSelected:0,smartFallbacks:0,smartLast:'Проверка маршрутов ещё не проводилась'};
 const android=typeof window.HBAndroid!=='undefined';
 window.HBTransport={
   pending:new Map(), serial:0,
@@ -32,11 +32,13 @@ function updateStatus(s){
   app.token=s.token;app.selected=s.selected;app.active=s.active;app.services=s.services;app.probeBusy=s.probeBusy;app.systemBusy=s.systemBusy;app.mode=s.mode||'off';app.error=s.error||'';app.root=!!s.root;app.rootChecked=!!s.rootChecked;
   app.dnsRequests=s.dnsRequests||0;app.dnsReplies=s.dnsReplies||0;app.dnsFailures=s.dnsFailures||0;
   app.privateDnsMode=s.privateDnsMode||'неизвестно';
+  app.smartChecked=s.smartChecked||0;app.smartSelected=s.smartSelected||0;
+  app.smartFallbacks=s.smartFallbacks||0;app.smartLast=s.smartLast||'Проверка маршрутов ещё не проводилась';
   render();
 }
 function render(){
   const provider=app.services[app.selected];if(!provider)return;
-  $('badge').textContent='Smart DNS 1.25 · '+provider.site;
+  $('badge').textContent='Smart DNS 1.26 · '+provider.site;
   $('addresses').textContent=provider.v4.join('  /  ');
   $('provider-note').textContent=provider.opens;
   document.querySelectorAll('.service').forEach(el=>{el.classList.toggle('selected',Number(el.dataset.set)===app.selected);el.disabled=app.systemBusy||app.probeBusy;});
@@ -55,6 +57,8 @@ function render(){
     risk.textContent='Private DNS: '+app.privateDnsMode+(strict?' · строгий DoT может обходить обычный DNS-VPN. Откройте настройки Android и выберите Автоматически, если хотите проверить работу Smart DNS.':'');
     risk.classList.toggle('warning',strict);
   }
+  const smart=$('smart-route-status');
+  if(smart)smart.textContent=`Проверено HTTPS-путей: ${app.smartChecked} · выбрано: ${app.smartSelected} · резервных переключений: ${app.smartFallbacks}. ${app.smartLast}`;
   $('check').textContent=app.probeBusy?'Проверяем…':'Проверить '+provider.short;
   $('best').textContent=app.probeBusy?'Ищем…':'Найти лучший';
   $('check').disabled=busy;$('best').disabled=busy;
@@ -115,7 +119,7 @@ async function copyDns(){
   try{await navigator.clipboard.writeText(text);notify('Оба DNS-адреса скопированы');}
   catch{notify('Адреса: '+text.replace('\n',', '));}
 }
-async function checkUpdate(){try{const r=await request('update');if(r.newer){const link=$('update-link');link.href=r.url;link.textContent='Новый релиз исходного проекта: '+r.latest+' ↗';link.classList.add('update');link.title='Релиз Windows/Mac, не сборка Android!';}}catch{}}
+async function checkUpdate(){try{const r=await request('update');if(r.newer){const link=$('update-link');link.href=r.url;link.textContent='Новая версия Android: '+r.latest+' ↗';link.classList.add('update');link.title='Релиз Android APK';}}catch{}}
 document.addEventListener('DOMContentLoaded',async()=>{
   document.querySelectorAll('.service').forEach(b=>b.addEventListener('click',withBusy(()=>select(Number(b.dataset.set)))));
   $('check').addEventListener('click',withBusy(check));

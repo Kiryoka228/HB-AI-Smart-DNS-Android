@@ -128,15 +128,97 @@ public final class DnsEngine {
         }
         return null;
     }
+    /** Parse a plain DNS question name; exclude compression/invalid labels from smart routing. */
+    public static String questionName(byte[] query){
+        if(questionEnd(query)<0)return null;
+        int p=12;StringBuilder domain=new StringBuilder();
+        while(p<query.length){
+            int n=query[p++]&255;if(n==0)break;
+            if(n<1||n>63||p+n>query.length)return null;
+            if(domain.length()>0)domain.append('.');
+            for(int i=0;i<n;i++){
+                int c=query[p+i]&255;
+                if(!(c>=48&&c<=57||c>=65&&c<=90||c>=97&&c<=122||c==45))return null;
+                domain.append((char)c);
+            }
+            p+=n;
+        }
+        return domain.toString().toLowerCase(java.util.Locale.ROOT);
+    }
+    public static int questionType(byte[] query){
+        int end=questionEnd(query);
+        if(end<0||u16(query,end-2)!=1)return -1;
+        return u16(query,end-4);
+    }
+    /** Enumerate IPv4 RDATA from answer records, skipping name aliases and unrelated RR types. */
+    public static List<String> allA(byte[] answer){
+        List<String> found=new ArrayList<>();
+        if(answer==null||answer.length<12||(answer[3]&15)!=0)return found;
+        int q=u16(answer,4), p=12;
+        if(q<1||q>8)return found;
+        for(int i=0;i<q;i++){
+            p=skipDnsName(answer,p);
+            if(p<0||p+4>answer.length)return found;
+            p+=4;
+        }
+        int count=Math.min(u16(answer,6),64);
+        for(int i=0;i<count;i++){
+            p=skipDnsName(answer,p);
+            if(p<0||p+10>answer.length)break;
+            int type=u16(answer,p), cls=u16(answer,p+2), size=u16(answer,p+8);
+            p+=10;if(p+size>answer.length)break;
+            if(type==1&&cls==1&&size==4){
+                String ip=(answer[p]&255)+"."+(answer[p+1]&255)+"."+(answer[p+2]&255)+"."+(answer[p+3]&255);
+                if(!found.contains(ip))found.add(ip);
+            }
+            p+=size;
+        }
+        return found;
+    }
+    private static int skipDnsName(byte[] data,int offset){
+        for(int guard=0;guard<128;guard++){
+            if(offset>=data.length)return -1;
+            int len=data[offset++]&255;
+            if(len==0)return offset;
+            if((len&0xc0)==0xc0)return offset<data.length?offset+1:-1;
+            if(len>63||offset+len>data.length)return -1;
+            offset+=len;
+        }
+        return -1;
+    }
+    /** Return one IP that was verified for this hostname, with a short TTL and original DNS ID. */
+    public static byte[] oneA(byte[] query,String ip,int ttl){
+        int end=questionEnd(query);
+        if(end<0||questionType(query)!=1)return servfail(query);
+        try{
+            String[] parts=ip.split("\\.");if(parts.length!=4)throw new Exception();
+            byte[] response=Arrays.copyOf(query,end+16);
+            response[2]=(byte)0x81;response[3]=(byte)0x80;
+            put16(response,4,1);put16(response,6,1);put16(response,8,0);put16(response,10,0);
+            int p=end;response[p++]=(byte)0xc0;response[p++]=12;
+            put16(response,p,1);p+=2;put16(response,p,1);p+=2;
+            put32(response,p,Math.max(1,Math.min(ttl,60)));p+=4;
+            put16(response,p,4);p+=2;
+            for(String part:parts){int v=Integer.parseInt(part);if(v<0||v>255)throw new Exception();response[p++]=(byte)v;}
+            return response;
+        }catch(Exception e){return servfail(query);}
+    }
     /** VPN protect is mandatory; without it resolver sockets could recursively enter the TUN. */
     public interface Protect { boolean protect(DatagramSocket socket); boolean protect(Socket socket); }
     public static byte[] forward(byte[] query, int provider, Protect protect) {
+        return forwardWithTimeout(query,provider,protect,4,1900);
+    }
+    /** AI failover uses shorter bounded retries; ordinary DNS preserves the original policy. */
+    public static byte[] forwardFast(byte[] query, int provider, Protect protect) {
+        return forwardWithTimeout(query,provider,protect,2,1100);
+    }
+    private static byte[] forwardWithTimeout(byte[] query,int provider,Protect protect,int attempts,int timeout) {
         if(provider<0||provider>3||questionEnd(query)<0)return servfail(query);
         if(provider!=3){byte[] blocked=blockedAAAA(query);if(blocked!=null)return blocked;}
-        for(int attempt=0;attempt<4;attempt++) {
+        for(int attempt=0;attempt<attempts;attempt++) {
             try(DatagramSocket socket=new DatagramSocket()){
                 if(protect!=null&&!protect.protect(socket))return servfail(query);
-                socket.setSoTimeout(1900);
+                socket.setSoTimeout(timeout);
                 String upstream=DNS[provider][attempt%2];
                 InetAddress remote=InetAddress.getByName(upstream);
                 DatagramPacket request=new DatagramPacket(query,query.length,remote,53);
@@ -189,7 +271,9 @@ public final class DnsEngine {
     }
     public static boolean httpSuccess(String result){return result!=null&&result.matches("HTTP 2[0-9][0-9] \u00b7 сервер отвечает");}
     public static SiteResult probe(int provider, String[] site){
-        byte[] ans=forward(queryA(site[0]),provider,null);
+        byte[] ans=(provider<3 && SmartRoute.protectedHost(site[0]))
+            ?SmartRoute.forward(queryA(site[0]),provider,null)
+            :forward(queryA(site[0]),provider,null);
         String ip=firstA(ans);
         return new SiteResult(site[1],ip,checkSite(site[0],ip));
     }

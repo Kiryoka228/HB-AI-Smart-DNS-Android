@@ -15,11 +15,11 @@
 <body>
 <div class="shell">
   <header>
-    <div class="pill"><span class="light"></span><span id="badge">Smart DNS Android 1.25 · comss.ru</span></div>
+    <div class="pill"><span class="light"></span><span id="badge">Smart DNS Android 1.26 · comss.ru</span></div>
     <div class="platform">ANDROID <span class="tiny-pwa">APK · WEB</span></div>
   </header>
   <main>
-    <div class="hero"><h1>Доступ<br><mark>к сервисам</mark></h1><p>Четыре DNS-сервиса. Выбор, диагностика и проверка доступа с вашего Android.</p></div>
+    <div class="hero"><h1>Доступ<br><mark>к сервисам</mark></h1><p>Четыре DNS-сервиса. Для ChatGPT и Gemini автоматически проверяем HTTPS-узлы и пробуем резервный Smart DNS при сбое.</p></div>
     <section class="power-area" aria-labelledby="status-title">
       <button class="power" id="toggle" type="button" aria-label="Включить или отключить системный DNS">
         <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 10V49M27 23a39 39 0 1 0 46 0" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
@@ -41,6 +41,7 @@
         <button class="small-btn" id="best">Найти лучший</button>
       </div>
       <p class="provider-note" id="provider-note"></p>
+      <div class="diagnostics"><strong>Автовосстановление ChatGPT и Gemini</strong><p id="smart-route-status" aria-live="polite">Реальные HTTPS-маршруты будут проверяться при DNS-запросах.</p><p class="probe-notice">Работает автоматически при выбранном Comss, GeoHide или MagicDNS. Не подменяет сертификаты, не меняет аккаунт/регион и не гарантирует обход HTTP 403, CAPTCHA или встроенного DoH.</p></div>
       <div class="results" id="results" aria-live="polite"></div>
       <p id="best-note" class="best-note" aria-live="polite"></p>
       <p class="probe-notice">Проверка отвечает только на вопрос, доступен ли сервер по HTTPS с телефона. HTTP 2xx не гарантирует работу авторизации или мобильного приложения; HTTP 403/451 означает ограничение доступа.</p>
@@ -61,7 +62,7 @@
       <details><summary>Настройка без root</summary><p>В режиме без root нажмите «Включить» и разрешите Android локальную VPN-службу. Она будет обслуживать системные DNS-запросы через выбранного провайдера как для Wi-Fi, так и для мобильной сети. Если используется другой VPN, они могут конфликтовать; приложения с собственным DoH могут обходить системный DNS.</p></details>
       <details><summary>Ограничения режима root</summary><p>В root-режиме используются su, iptables NAT и локальный DNS-прокси, а режим Private DNS временно отключается с сохранением исходной настройки. Для IPv6 ip6tables используется там, где поддерживается. Другие VPN, DoH/DoT внутри приложений и ограничения SELinux могут обходить этот метод. При отключении программа удаляет только собственные правила; дополнительно работает watchdog для аварийного отката.</p></details>
     </section>
-    <section class="footer-cta"><a id="update-link" class="cta" target="_blank" rel="noopener noreferrer" href="https://vk.com/neiroseti_ai">Наша группа ВКонтакте <span>↗</span></a><p><strong>HB AI</strong><a target="_blank" rel="noopener noreferrer" href="https://vk.com/neiroseti_ai">vk.com/neiroseti_ai</a></p><small>Android APK Web Fork 1.25 · исходный HB AI Smart DNS 1.23 (MIT)</small></section>
+    <section class="footer-cta"><a id="update-link" class="cta" target="_blank" rel="noopener noreferrer" href="https://vk.com/neiroseti_ai">Наша группа ВКонтакте <span>↗</span></a><p><strong>HB AI</strong><a target="_blank" rel="noopener noreferrer" href="https://vk.com/neiroseti_ai">vk.com/neiroseti_ai</a></p><small>Android APK Web Fork 1.26 · исходный HB AI Smart DNS 1.23 (MIT)</small></section>
   </main>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </div>
